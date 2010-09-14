@@ -164,3 +164,8 @@ class SearchResult(object):
         """
         self.__dict__.update(d)
         self.log = self._get_log()
+
+    def __emittable__(self):
+        val = self.object.__emittable__()
+        val['score'] = self.score
+        return val
