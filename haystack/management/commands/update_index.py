@@ -30,14 +30,14 @@ class Command(AppCommand):
         ),
     )
     option_list = AppCommand.option_list + base_options
-    
+
     # Django 1.0.X compatibility.
     verbosity_present = False
-    
+
     for option in option_list:
         if option.get_opt_string() == '--verbosity':
             verbosity_present = True
-    
+
     if verbosity_present is False:
         option_list = option_list + (
             make_option('--verbosity', action='store', dest='verbosity', default='1',
@@ -45,18 +45,18 @@ class Command(AppCommand):
                 help='Verbosity level; 0=minimal output, 1=normal output, 2=all output'
             ),
         )
-    
+
     def handle(self, *apps, **options):
         self.verbosity = int(options.get('verbosity', 1))
         self.batchsize = options.get('batchsize', DEFAULT_BATCH_SIZE)
         self.age = options.get('age', DEFAULT_AGE)
         self.site = options.get('site')
-        
+
         if not apps:
             from django.db.models import get_app
             # Do all, in an INSTALLED_APPS sorted order.
             apps = []
-            
+
             for app in settings.INSTALLED_APPS:
                 try:
                     app_label = app.split('.')[-1]
@@ -65,62 +65,60 @@ class Command(AppCommand):
                 except:
                     # No models, no problem.
                     pass
-            
+
         return super(Command, self).handle(*apps, **options)
-    
+
     def handle_app(self, app, **options):
         # Cause the default site to load.
         from haystack import site
-        from django.db.models import get_models
         from haystack.exceptions import NotRegistered
-        
+
         if self.site:
             path_bits = self.site.split('.')
             module_name = '.'.join(path_bits[:-1])
             site_name = path_bits[-1]
-            
+
             try:
                 module = importlib.import_module(module_name)
                 site = getattr(module, site_name)
             except (ImportError, NameError):
                 pass
-        
-        for model in get_models(app):
-            try:
-                index = site.get_index(model)
-            except NotRegistered:
-                if self.verbosity >= 2:
-                    print "Skipping '%s' - no index." % model
+
+        app_name = app.__name__.split('.')[-2]
+        for model, index in site.get_indexes().items():
+            if model._meta.app_label != app_name:
+                print "Skipping %s.%s" % (model._meta.app_label, model._meta.module_name)
                 continue
-                
+            print "Handling %s.%s" % (model._meta.app_label, model._meta.module_name)
+
             extra_lookup_kwargs = {}
             updated_field = index.get_updated_field()
-            
+
             if self.age:
                 if updated_field:
                     extra_lookup_kwargs['%s__gte' % updated_field] = datetime.datetime.now() - datetime.timedelta(hours=self.age)
                 else:
                     if self.verbosity >= 2:
                         print "No updated date field found for '%s' - not restricting by age." % model.__name__
-            
+
             # `.select_related()` seems like a good idea here but can fail on
             # nullable `ForeignKey` as well as what seems like other cases.
-            qs = index.get_queryset().filter(**extra_lookup_kwargs).order_by(model._meta.pk.name)
+            qs = index.get_queryset().filter(**extra_lookup_kwargs)
             total = qs.count()
-            
+
             if self.verbosity >= 1:
                 print "Indexing %d %s." % (total, smart_str(model._meta.verbose_name_plural))
-            
+
             for start in range(0, total, self.batchsize):
                 end = min(start + self.batchsize, total)
-                
+
                 if self.verbosity >= 2:
                     print "  indexing %s - %d of %d." % (start+1, end, total)
-                
+
                 # Get a clone of the QuerySet so that the cache doesn't bloat up
                 # in memory. Useful when reindexing large amounts of data.
                 small_cache_qs = qs.all()
                 index.backend.update(index, small_cache_qs[start:end])
-                
+
                 # Clear out the DB connections queries because it bloats up RAM.
                 reset_queries()

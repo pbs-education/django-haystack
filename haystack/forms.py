@@ -9,30 +9,30 @@ from haystack.query import SearchQuerySet
 def model_choices(site=None):
     if site is None:
         site = haystack.site
-    
+
     choices = [("%s.%s" % (m._meta.app_label, m._meta.module_name), capfirst(unicode(m._meta.verbose_name_plural))) for m in site.get_indexed_models()]
     return sorted(choices, key=lambda x: x[1])
 
 
 class SearchForm(forms.Form):
     q = forms.CharField(required=False, label=_('Search'))
-    
+
     def __init__(self, *args, **kwargs):
         self.searchqueryset = kwargs.pop('searchqueryset', None)
         self.load_all = kwargs.pop('load_all', False)
-        
+
         if self.searchqueryset is None:
             self.searchqueryset = SearchQuerySet()
-        
+
         super(SearchForm, self).__init__(*args, **kwargs)
-    
+
     def search(self):
         if self.is_valid():
             sqs = self.searchqueryset.auto_query(self.cleaned_data['q'])
-            
+
             if self.load_all:
                 sqs = sqs.load_all()
-            
+
             return sqs
         else:
             return []
@@ -45,13 +45,13 @@ class HighlightedSearchForm(SearchForm):
 
 class FacetedSearchForm(SearchForm):
     selected_facets = forms.CharField(required=False, widget=forms.HiddenInput)
-    
+
     def search(self):
         sqs = super(FacetedSearchForm, self).search()
-        
+
         if self.cleaned_data['selected_facets']:
             sqs = sqs.narrow(self.cleaned_data['selected_facets'])
-        
+
         return sqs
 
 
@@ -63,12 +63,12 @@ class ModelSearchForm(SearchForm):
     def get_models(self):
         """Return an alphabetical list of model classes in the index."""
         search_models = []
-        
+
         for model in self.cleaned_data['models']:
-            search_models.append(models.get_model(*model.split('.')))
-        
+            search_models.append(haystack.site.get_model(model))
+
         return search_models
-    
+
     def search(self):
         sqs = super(ModelSearchForm, self).search()
         return sqs.models(*self.get_models())
@@ -81,11 +81,11 @@ class HighlightedModelSearchForm(ModelSearchForm):
 
 class FacetedModelSearchForm(ModelSearchForm):
     selected_facets = forms.CharField(required=False, widget=forms.HiddenInput)
-    
+
     def search(self):
         sqs = super(FacetedModelSearchForm, self).search()
-        
+
         if self.cleaned_data['selected_facets']:
             sqs = sqs.narrow(self.cleaned_data['selected_facets'])
-        
+
         return sqs.models(*self.get_models())

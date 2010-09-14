@@ -30,27 +30,27 @@ class SearchField(object):
         self._default = default
         self.null = null
         self.index_fieldname = index_fieldname
-        
+
         self.set_instance_name(None)
-    
+
     def set_instance_name(self, instance_name):
         self.instance_name = instance_name
-        
+
         if self.index_fieldname is None:
             self.index_fieldname = self.instance_name
-    
+
     def has_default(self):
         """Returns a boolean of whether this field has a default value."""
         return self._default is not NOT_PROVIDED
-    
+
     @property
     def default(self):
         """Returns the default value for the field."""
         if callable(self._default):
             return self._default()
-        
+
         return self._default
-    
+
     def prepare(self, obj):
         """
         Takes data from the provided object and prepares it for storage in the
@@ -63,13 +63,13 @@ class SearchField(object):
             # Check for `__` in the field for looking through the relation.
             attrs = self.model_attr.split('__')
             current_object = obj
-            
+
             for attr in attrs:
                 if not hasattr(current_object, attr):
                     raise SearchFieldError("The model '%s' does not have a model_attr '%s'." % (repr(obj), attr))
-                
+
                 current_object = getattr(current_object, attr, None)
-                
+
                 if current_object is None:
                     if self.has_default():
                         current_object = self._default
@@ -83,21 +83,21 @@ class SearchField(object):
                         break
                     else:
                         raise SearchFieldError("The model '%s' has an empty model_attr '%s' and doesn't allow a default or null value." % (repr(obj), attr))
-            
+
             if callable(current_object):
                 return current_object()
-            
+
             return current_object
-        
+
         if self.has_default():
             return self.default
         else:
             return None
-    
+
     def prepare_template(self, obj):
         """
         Flattens an object for indexing.
-        
+
         This loads a template
         (``search/indexes/{app_label}/{model_name}_{field_name}.txt``) and
         returns the result of rendering that template. ``object`` will be in
@@ -105,19 +105,19 @@ class SearchField(object):
         """
         if self.instance_name is None and self.template_name is None:
             raise SearchFieldError("This field requires either its instance_name variable to be populated or an explicit template_name in order to load the correct template.")
-        
+
         if self.template_name is not None:
             template_name = self.template_name
         else:
             template_name = 'search/indexes/%s/%s_%s.txt' % (obj._meta.app_label, obj._meta.module_name, self.instance_name)
-        
+
         t = loader.get_template(template_name)
         return t.render(Context({'object': obj}))
-    
+
     def convert(self, value):
         """
         Handles conversion between the data found and the type of the field.
-        
+
         Extending classes should override this method and provide correct
         data coercion.
         """
@@ -127,44 +127,44 @@ class SearchField(object):
 class CharField(SearchField):
     def prepare(self, obj):
         return self.convert(super(CharField, self).prepare(obj))
-    
+
     def convert(self, value):
         if value is None:
             return None
-        
+
         return unicode(value)
 
 
 class IntegerField(SearchField):
     def prepare(self, obj):
         return self.convert(super(IntegerField, self).prepare(obj))
-    
+
     def convert(self, value):
         if value is None:
             return None
-        
+
         return int(value)
 
 
 class FloatField(SearchField):
     def prepare(self, obj):
         return self.convert(super(FloatField, self).prepare(obj))
-    
+
     def convert(self, value):
         if value is None:
             return None
-        
+
         return float(value)
 
 
 class BooleanField(SearchField):
     def prepare(self, obj):
         return self.convert(super(BooleanField, self).prepare(obj))
-    
+
     def convert(self, value):
         if value is None:
             return None
-        
+
         return bool(value)
 
 
@@ -172,16 +172,16 @@ class DateField(SearchField):
     def convert(self, value):
         if value is None:
             return None
-        
+
         if isinstance(value, basestring):
             match = DATETIME_REGEX.search(value)
-            
+
             if match:
                 data = match.groupdict()
                 return datetime_safe.date(int(data['year']), int(data['month']), int(data['day']))
             else:
                 raise SearchFieldError("Date provided to '%s' field doesn't appear to be a valid date string: '%s'" % (self.instance_name, value))
-        
+
         return value
 
 
@@ -189,25 +189,25 @@ class DateTimeField(SearchField):
     def convert(self, value):
         if value is None:
             return None
-        
+
         if isinstance(value, basestring):
             match = DATETIME_REGEX.search(value)
-            
+
             if match:
                 data = match.groupdict()
                 return datetime_safe.datetime(int(data['year']), int(data['month']), int(data['day']), int(data['hour']), int(data['minute']), int(data['second']))
             else:
                 raise SearchFieldError("Datetime provided to '%s' field doesn't appear to be a valid datetime string: '%s'" % (self.instance_name, value))
-        
+
         return value
 
 
 class MultiValueField(SearchField):
     def prepare(self, obj):
         return self.convert(super(MultiValueField, self).prepare(obj))
-    
+
     def convert(self, value):
         if value is None:
             return None
-        
+
         return list(value)
