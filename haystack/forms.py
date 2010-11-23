@@ -86,7 +86,7 @@ class ModelSearchForm(SearchForm):
         
         if self.is_valid():
             for model in self.cleaned_data['models']:
-                search_models.append(models.get_model(*model.split('.')))
+                search_models.append(haystack.site.get_model(model))
         
         return search_models
     

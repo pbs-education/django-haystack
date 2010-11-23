@@ -2,7 +2,6 @@ import logging
 import sys
 from django.conf import settings
 from django.core.exceptions import ImproperlyConfigured
-from django.db.models.loading import get_model
 from haystack.backends import BaseSearchBackend, BaseSearchQuery, log_query
 from haystack.constants import ID, DJANGO_CT, DJANGO_ID
 from haystack.exceptions import MissingDependency, MoreLikeThisError
@@ -278,7 +277,7 @@ class SearchBackend(BaseSearchBackend):
         for raw_result in raw_results.docs:
             app_label, model_name = raw_result[DJANGO_CT].split('.')
             additional_fields = {}
-            model = get_model(app_label, model_name)
+            model = site.get_model(raw_result['django_ct'])
             
             if model and model in indexed_models:
                 for key, value in raw_result.items():

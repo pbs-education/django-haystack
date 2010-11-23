@@ -55,7 +55,7 @@ class SearchResult(object):
                 return None
             
             try:
-                self._object = self.model._default_manager.get(pk=self.pk)
+                self._object = self.model._default_manager.get(**{self.model.pk.name: self.pk})
             except ObjectDoesNotExist:
                 self.log.error("Object could not be found in database for SearchResult '%s'." % self)
                 self._object = None
@@ -69,7 +69,8 @@ class SearchResult(object):
     
     def _get_model(self):
         if self._model is None:
-            self._model = models.get_model(self.app_label, self.model_name)
+            from haystack import site
+            self._model = site.get_model('%s.%s' % (self.app_label, self.model_name))
         
         return self._model
     
@@ -163,3 +164,8 @@ class SearchResult(object):
         """
         self.__dict__.update(d)
         self.log = self._get_log()
+
+    def __emittable__(self):
+        val = self.object.__emittable__()
+        val['score'] = self.score
+        return val

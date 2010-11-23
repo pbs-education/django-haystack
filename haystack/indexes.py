@@ -125,7 +125,7 @@ class SearchIndex(object):
         self.prepared_data = {
             ID: get_identifier(obj),
             DJANGO_CT: "%s.%s" % (obj._meta.app_label, obj._meta.module_name),
-            DJANGO_ID: force_unicode(obj.pk),
+            DJANGO_ID: force_unicode(obj._get_pk_val()),
         }
         
         for field_name, field in self.fields.items():

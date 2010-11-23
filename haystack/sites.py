@@ -20,6 +20,7 @@ class SearchSite(object):
     
     def __init__(self):
         self._registry = {}
+        self._models = {}
         self._cached_field_mapping = None
     
     def register(self, model, index_class=None):
@@ -35,12 +36,7 @@ class SearchSite(object):
             from haystack.indexes import BasicSearchIndex
             index_class = BasicSearchIndex
         
-        if not hasattr(model, '_meta'):
-            raise AttributeError('The model being registered must derive from Model.')
-        
-        if model in self._registry:
-            raise AlreadyRegistered('The model %s is already registered' % model.__class__)
-        
+        self._models['%s.%s' % (model._meta.app_label, model._meta.module_name)] = model
         self._registry[model] = index_class(model)
         self._setup(model, self._registry[model])
     
@@ -74,6 +70,9 @@ class SearchSite(object):
     def get_indexed_models(self):
         """Provide a list of all models being indexed."""
         return self._registry.keys()
+
+    def get_model(self, name):
+        return self._models.get(name)
     
     def all_searchfields(self):
         """

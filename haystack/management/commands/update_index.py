@@ -80,7 +80,6 @@ class Command(AppCommand):
     def handle_app(self, app, **options):
         # Cause the default site to load.
         from haystack import site
-        from django.db.models import get_models
         from haystack.exceptions import NotRegistered
         
         if self.site:
@@ -94,14 +93,15 @@ class Command(AppCommand):
             except (ImportError, NameError):
                 pass
         
-        for model in get_models(app):
-            try:
-                index = site.get_index(model)
-            except NotRegistered:
+        app_name = app.__name__.split('.')[-2]
+        for model, index in site.get_indexes().items():
+            if model._meta.app_label != app_name:
                 if self.verbosity >= 2:
-                    print "Skipping '%s' - no index." % model
+                    print "Skipping %s.%s" % (model._meta.app_label, model._meta.module_name)
                 continue
-                
+            if self.verbosity >= 2:
+                print "Handling %s.%s" % (model._meta.app_label, model._meta.module_name)
+
             extra_lookup_kwargs = {}
             updated_field = index.get_updated_field()
             
@@ -114,7 +114,7 @@ class Command(AppCommand):
             
             # `.select_related()` seems like a good idea here but can fail on
             # nullable `ForeignKey` as well as what seems like other cases.
-            qs = index.get_queryset().filter(**extra_lookup_kwargs).order_by(model._meta.pk.name)
+            qs = index.get_queryset().filter(**extra_lookup_kwargs)
             total = qs.count()
             
             if self.verbosity >= 1:

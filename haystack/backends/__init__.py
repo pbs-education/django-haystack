@@ -587,8 +587,6 @@ class BaseSearchQuery(object):
         This builds upon previous additions, so you can limit to multiple models
         by chaining this method several times.
         """
-        if not isinstance(model, ModelBase):
-            raise AttributeError('The model being added to the query must derive from Model.')
         
         self.models.add(model)
     
