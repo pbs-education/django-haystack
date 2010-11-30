@@ -109,11 +109,6 @@ class SearchBackend(BaseSearchBackend):
                fields='', highlight=False, facets=None, date_facets=None, query_facets=None,
                narrow_queries=None, spelling_query=None,
                limit_to_registered_models=None, **kwargs):
-        if len(query_string) == 0:
-            return {
-                'results': [],
-                'hits': 0,
-            }
         
         kwargs = {
             'fl': '* score',
@@ -372,7 +367,7 @@ class SearchQuery(BaseSearchQuery):
             self.backend = SearchBackend(site=site)
 
     def matching_all_fragment(self):
-        return '*:*'
+        return ''
 
     def build_query_fragment(self, field, filter_type, value):
         result = ''
